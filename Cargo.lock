@@ -173,6 +173,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "byte"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21c7ab3e4ae80853c7f8dcdcd904dfa25c02cc373534b8d165194325a088a7cc"
+
+[[package]]
 name = "bytemuck"
 version = "1.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1575,6 +1581,7 @@ checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
 name = "recurse-cv"
 version = "0.2.0"
 dependencies = [
+ "byte",
  "cortex-m",
  "cortex-m-rt",
  "cyw43",
@@ -1592,6 +1599,7 @@ dependencies = [
  "panic-probe",
  "serde",
  "serde-json-core",
+ "serial-line-ip",
  "static_cell",
 ]
 
@@ -1785,6 +1793,12 @@ dependencies = [
  "quote",
  "syn 3.0.9",
 ]
+
+[[package]]
+name = "serial-line-ip"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08a0b86bcdab6b15029ff7e37ae8acdadbf5d48e070ec5a067aa5c31e306f958"
 
 [[package]]
 name = "sha2"

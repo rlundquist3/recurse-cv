@@ -68,7 +68,9 @@ async fn main(spawner: Spawner) {
     spawner.spawn(cyw43_task(runner).unwrap());
 
     control.init(clm).await;
-    control.set_power_management(cyw43::PowerManagementMode::PowerSave);
+    control
+        .set_power_management(cyw43::PowerManagementMode::PowerSave)
+        .await;
 
     let config = Config::dhcpv4(Default::default());
 

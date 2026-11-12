@@ -4,6 +4,7 @@ version = "0.2.0"
 edition = "2024"
 
 [dependencies]
+byte = "0.2.7"
 cortex-m = "0.7.7"
 cortex-m-rt = "0.7.5"
 cyw43 = { version = "0.7.0", features = ["defmt"] }
@@ -43,6 +44,7 @@ embedded-tls = { version = "0.19", default-features = false, features = [
 panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde-json-core = { version = "0.7", features = ["defmt"] }
+serial-line-ip = "0.5.0"
 static_cell = "2.1.1"
 
 [build-dependencies]
