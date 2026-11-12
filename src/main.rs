@@ -19,7 +19,7 @@ use embassy_rp::{
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
-mod api;
+mod osc;
 
 const NETWORK_SSID: &str = env!("NETWORK_SSID");
 const NETWORK_PASSWORD: &str = env!("NETWORK_PASSWORD");
@@ -98,42 +98,7 @@ async fn main(spawner: Spawner) {
 
     info!("network connection up");
 
-    api::run(stack).await
-
-    // let mut rx_buffer = [0; 4096];
-    // let mut tx_buffer = [0; 4096];
-    // let mut buffer = [0; 4096];
-
-    // loop {
-    //     let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-    //     socket.set_timeout(Some(Duration::from_secs(10)));
-
-    //     control.gpio_set(0, false).await;
-    //     info!("listening on TCP:1234...");
-    //     if let Err(e) = socket.accept(1234).await {
-    //         warn!("accept error: {:?}", e);
-    //         continue;
-    //     }
-
-    //     info!("received connection from {:?}", socket.remote_endpoint());
-    //     control.gpio_set(0, true).await;
-
-    //     loop {
-    //         let n = match socket.read(&mut buffer).await {
-    //             Ok(0) => {
-    //                 warn!("read EOF");
-    //                 break;
-    //             }
-    //             Ok(n) => n,
-    //             Err(err) => {
-    //                 warn!("read error: {:?}", err);
-    //                 break;
-    //             }
-    //         };
-
-    //         info!("rx {}", from_utf8(&buffer[..n]).unwrap());
-    //     }
-    // }
+    osc::listen(stack).await
 }
 
 #[embassy_executor::task]

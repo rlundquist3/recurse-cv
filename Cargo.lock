@@ -1572,7 +1572,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
 
 [[package]]
-name = "recurse-control-voltage"
+name = "recurse-cv"
 version = "0.2.0"
 dependencies = [
  "cortex-m",

@@ -1,5 +1,5 @@
 [package]
-name = "recurse-control-voltage"
+name = "recurse-cv"
 version = "0.2.0"
 edition = "2024"
 
