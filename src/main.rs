@@ -1,10 +1,11 @@
 #![no_std]
 #![no_main]
 
-use core::str::from_utf8;
+use crate::cv::cv_output_handler;
 use cyw43::{JoinOptions, aligned_bytes};
 use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
-use defmt::{info, warn};
+use defmt::info;
+use emballoc;
 use embassy_executor::Spawner;
 use embassy_net::{Config, StackResources};
 use embassy_rp::{
@@ -17,12 +18,19 @@ use embassy_rp::{
     pio::{InterruptHandler, Pio},
 };
 use static_cell::StaticCell;
+
 use {defmt_rtt as _, panic_probe as _};
 
+extern crate alloc;
+
+mod cv;
 mod osc;
 
 const NETWORK_SSID: &str = env!("NETWORK_SSID");
 const NETWORK_PASSWORD: &str = env!("NETWORK_PASSWORD");
+
+#[global_allocator]
+static ALLOCATOR: emballoc::Allocator<4096> = emballoc::Allocator::new();
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
@@ -100,6 +108,7 @@ async fn main(spawner: Spawner) {
 
     info!("network connection up");
 
+    spawner.spawn(cv_output_handler().unwrap());
     osc::listen(stack).await
 }
 

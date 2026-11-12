@@ -1,3 +1,4 @@
+use crate::cv::{CVMessage, OSC_TO_CV_BUFFER};
 use byte::ctx::{Endian, NULL, Str};
 use byte::*;
 use defmt::{info, warn};
@@ -68,13 +69,7 @@ pub async fn listen(stack: Stack<'static>) {
                 if is_end {
                     let packet = &buffers.slip_decoded[..decoded_count];
                     match packet.read_with::<OSCMessage>(&mut 0, Endian::Big) {
-                        Ok(message) => {
-                            info!(
-                                "parsed {:?}, {:?}, {:?}",
-                                message.address, message.value_type, message.value
-                            );
-                            // TODO: do stuff with the input!
-                        }
+                        Ok(message) => handle_osc_message(message),
                         Err(_) => warn!("error parsing OSC packet"),
                     }
                     slip_decoder = Decoder::new();
@@ -89,11 +84,44 @@ pub async fn listen(stack: Stack<'static>) {
     }
 }
 
+fn handle_osc_message(message: OSCMessage<'_>) {
+    info!(
+        "message {:?}, {:?}, {:?}",
+        message.address, message.value_type, message.value
+    );
+
+    let mut parts = message.address.split('/');
+    let input_index = match (
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+    ) {
+        (Some(""), Some("cv"), Some(i), Some("value"), None) => match i.parse::<usize>() {
+            Ok(i @ 1..=4) => i,
+            _ => return warn!("CV index {:?} out of range", i),
+        },
+        _ => return warn!("OSC address {:?} not supported", message.address),
+    };
+    if message.value_type != ",f" {
+        return warn!("value of type {:?} not supported", message.value_type);
+    }
+
+    match OSC_TO_CV_BUFFER.try_send(CVMessage {
+        input_index,
+        value: message.value,
+    }) {
+        Ok(()) => {}
+        Err(_) => warn!("OSC buffer full"),
+    };
+}
+
 #[derive(Debug)]
-struct OSCMessage<'a> {
-    address: &'a str,
-    value_type: &'a str,
-    value: f32,
+pub struct OSCMessage<'a> {
+    pub address: &'a str,
+    pub value_type: &'a str,
+    pub value: f32,
 }
 
 impl<'a> TryRead<'a, Endian> for OSCMessage<'a> {

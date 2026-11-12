@@ -11,10 +11,12 @@ cyw43 = { version = "0.7.0", features = ["defmt"] }
 cyw43-pio = { version = "0.10.0", features = ["defmt"] }
 defmt = "1.0.1"
 defmt-rtt = "1.1.0"
+dsp-core = { git = "https://github.com/rlundquist3/synths.git", rev = "89114f1" }
 edge-ws = { version = "0.8", default-features = false, features = [
   "defmt",
   "io",
 ] }
+emballoc = "0.3.0"
 embassy-executor = { version = "0.10.0", features = [
   "platform-cortex-m",
   "executor-thread",
@@ -36,6 +38,7 @@ embassy-rp = { version = "0.10.0", features = [
   "binary-info",
   "defmt",
 ] }
+embassy-sync = "0.8.0"
 embassy-time = { version = "0.5.1" }
 embedded-io-async = "0.7"
 embedded-tls = { version = "0.19", default-features = false, features = [
