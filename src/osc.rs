@@ -99,7 +99,7 @@ fn handle_osc_message(message: OSCMessage<'_>) {
         parts.next(),
     ) {
         (Some(""), Some("cv"), Some(i), Some("value"), None) => match i.parse::<usize>() {
-            Ok(i @ 1..=4) => i,
+            Ok(i @ 1..=4) => i - 1,
             _ => return warn!("CV index {:?} out of range", i),
         },
         _ => return warn!("OSC address {:?} not supported", message.address),

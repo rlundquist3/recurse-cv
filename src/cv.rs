@@ -5,6 +5,9 @@ use defmt::{info, warn};
 use dsp_core::controls::api_to_cv::{APIToCV, APIToCVModes, OUTPUT_COUNT};
 use embassy_rp::pwm::{Pwm, SetDutyCycle};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
+use embassy_time::Timer;
+
+const ZERO_CV: [f32; OUTPUT_COUNT] = [0.0; OUTPUT_COUNT];
 
 #[derive(Debug)]
 pub struct CVMessage {
@@ -14,15 +17,17 @@ pub struct CVMessage {
 
 pub static OSC_TO_CV_BUFFER: Channel<CriticalSectionRawMutex, CVMessage, 16> = Channel::new();
 
+const PRECISION_MULT: u16 = 10_000;
 fn set_pwm_duty_cycles(pwm_outputs: &'static SharedPwmOutputs, values: [f32; OUTPUT_COUNT]) {
     pwm_outputs.lock(|pwm: &RefCell<[Pwm<'static>; 4]>| {
         pwm.borrow_mut()
             .iter_mut()
             .enumerate()
             .for_each(|(i, pwm_output)| {
-                // v * 100 / 10_000 for 4-digit percentage
-                let num = (values[i] * 100.0) as u16;
-                let denom = 10_000;
+                // multiply by 10k for 4 sig figs instead of 2
+                let num = (values[i] * PRECISION_MULT as f32) as u16;
+                let denom = PRECISION_MULT;
+                info!("setting duty cycle {:?}/{:?}", num, denom);
                 pwm_output.set_duty_cycle_fraction(num, denom).ok();
             });
     });
@@ -44,6 +49,11 @@ pub async fn cv_message_handler(pwm_outputs: &'static SharedPwmOutputs) {
             APIToCVModes::RealTime => {
                 let output_values = api_to_cv.realtime_output(message.input_index);
                 set_pwm_duty_cycles(pwm_outputs, output_values);
+
+                // 5ms trigger
+                // TODO: add settings for gate
+                Timer::after_millis(5).await;
+                set_pwm_duty_cycles(pwm_outputs, ZERO_CV);
             }
             APIToCVModes::Clocked => {
                 info!("input buffered for clocked output");
