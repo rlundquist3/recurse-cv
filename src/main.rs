@@ -1,12 +1,14 @@
 #![no_std]
 #![no_main]
 
-use crate::cv::cv_message_handler;
+use core::cell::RefCell;
+
+use crate::cv::{clocked_cv_output_handler, cv_message_handler};
 use cyw43::{JoinOptions, aligned_bytes};
 use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
 use defmt::info;
 use emballoc;
-use embassy_executor::Spawner;
+use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_net::{Config, StackResources};
 use embassy_rp::{
     self, bind_interrupts,
@@ -14,10 +16,13 @@ use embassy_rp::{
     clocks::RoscRng,
     dma,
     gpio::{Level, Output},
+    interrupt,
+    interrupt::{InterruptExt, Priority},
     peripherals::{DMA_CH0, PIO0},
     pio::{InterruptHandler, Pio},
     pwm::Pwm,
 };
+use embassy_sync::blocking_mutex::{Mutex as BlockingMutex, raw::CriticalSectionRawMutex};
 use static_cell::StaticCell;
 
 use {defmt_rtt as _, panic_probe as _};
@@ -27,8 +32,10 @@ extern crate alloc;
 mod cv;
 mod osc;
 
-const NETWORK_SSID: &str = env!("NETWORK_SSID");
-const NETWORK_PASSWORD: &str = env!("NETWORK_PASSWORD");
+/// Tell the Boot ROM about our application
+#[unsafe(link_section = ".start_block")]
+#[used]
+pub static IMAGE_DEF: ImageDef = embassy_rp::block::ImageDef::secure_exe();
 
 #[global_allocator]
 static ALLOCATOR: emballoc::Allocator<4096> = emballoc::Allocator::new();
@@ -38,10 +45,17 @@ bind_interrupts!(struct Irqs {
     DMA_IRQ_0 => dma::InterruptHandler<DMA_CH0>;
 });
 
-/// Tell the Boot ROM about our application
-#[unsafe(link_section = ".start_block")]
-#[used]
-pub static IMAGE_DEF: ImageDef = embassy_rp::block::ImageDef::secure_exe();
+static CV_EXECUTOR: InterruptExecutor = InterruptExecutor::new();
+
+#[interrupt]
+fn UART0_IRQ() {
+    unsafe {
+        CV_EXECUTOR.on_interrupt();
+    }
+}
+
+pub type SharedPwmOutputs = BlockingMutex<CriticalSectionRawMutex, RefCell<[Pwm<'static>; 4]>>;
+pub static PWM_OUTPUTS: StaticCell<SharedPwmOutputs> = StaticCell::new();
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -49,8 +63,12 @@ async fn main(spawner: Spawner) {
     info!("Recurse Control Voltage");
     info!("=======================");
 
-    // start network setup
     let peripherals = embassy_rp::init(Default::default());
+
+    // start network setup
+    const NETWORK_SSID: &str = env!("NETWORK_SSID");
+    const NETWORK_PASSWORD: &str = env!("NETWORK_PASSWORD");
+
     let mut rng = RoscRng;
 
     let fw = aligned_bytes!("../cyw43-firmware/43439A0.bin");
@@ -111,13 +129,13 @@ async fn main(spawner: Spawner) {
     info!("network connection up");
     // end network setup
 
-    // start GPIO setup
+    // start CV output setup
     // 2999 -> 50kHz; 3124 -> 48kHz
     // see https://pico.implrust.com/core-concepts/pwm/frequency-to-pwm-top-divider.html
     let mut pwm_config: embassy_rp::pwm::Config = Default::default();
     pwm_config.top = 2999;
     pwm_config.divider = 1.into();
-    let pwm_outputs = [
+    let pwm_outputs = PWM_OUTPUTS.init(BlockingMutex::new(RefCell::new([
         Pwm::new_output_a(
             peripherals.PWM_SLICE0,
             peripherals.PIN_0,
@@ -138,10 +156,14 @@ async fn main(spawner: Spawner) {
             peripherals.PIN_6,
             pwm_config.clone(),
         ),
-    ];
-    //end GPIO setup
+    ])));
 
-    spawner.spawn(cv_message_handler(pwm_outputs).unwrap());
+    interrupt::UART0_IRQ.set_priority(Priority::P0);
+    let cv_executor = CV_EXECUTOR.start(interrupt::UART0_IRQ);
+    cv_executor.spawn(cv_message_handler(pwm_outputs).unwrap());
+    cv_executor.spawn(clocked_cv_output_handler(pwm_outputs).unwrap());
+    //end CV output setup
+
     osc::listen(stack).await
 }
 
