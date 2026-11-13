@@ -511,7 +511,6 @@ checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 [[package]]
 name = "dsp-core"
 version = "0.1.0"
-source = "git+https://github.com/rlundquist3/synths.git?rev=89114f1#89114f1db35242ba97eac3122107fe8bd94ed7c0"
 dependencies = [
  "heapless",
  "micromath",

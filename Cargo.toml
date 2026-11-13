@@ -11,7 +11,7 @@ cyw43 = { version = "0.7.0", features = ["defmt"] }
 cyw43-pio = { version = "0.10.0", features = ["defmt"] }
 defmt = "1.0.1"
 defmt-rtt = "1.1.0"
-dsp-core = { git = "https://github.com/rlundquist3/synths.git", rev = "89114f1" }
+dsp-core = { path = "../synths/dsp-core" } # { git = "https://github.com/rlundquist3/synths.git", rev = "???????" }
 edge-ws = { version = "0.8", default-features = false, features = [
   "defmt",
   "io",

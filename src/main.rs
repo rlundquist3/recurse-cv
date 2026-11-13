@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use crate::cv::cv_output_handler;
+use crate::cv::cv_message_handler;
 use cyw43::{JoinOptions, aligned_bytes};
 use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
 use defmt::info;
@@ -16,6 +16,7 @@ use embassy_rp::{
     gpio::{Level, Output},
     peripherals::{DMA_CH0, PIO0},
     pio::{InterruptHandler, Pio},
+    pwm::Pwm,
 };
 use static_cell::StaticCell;
 
@@ -48,6 +49,7 @@ async fn main(spawner: Spawner) {
     info!("Recurse Control Voltage");
     info!("=======================");
 
+    // start network setup
     let peripherals = embassy_rp::init(Default::default());
     let mut rng = RoscRng;
 
@@ -107,8 +109,39 @@ async fn main(spawner: Spawner) {
     stack.wait_config_up().await;
 
     info!("network connection up");
+    // end network setup
 
-    spawner.spawn(cv_output_handler().unwrap());
+    // start GPIO setup
+    // 2999 -> 50kHz; 3124 -> 48kHz
+    // see https://pico.implrust.com/core-concepts/pwm/frequency-to-pwm-top-divider.html
+    let mut pwm_config: embassy_rp::pwm::Config = Default::default();
+    pwm_config.top = 2999;
+    pwm_config.divider = 1.into();
+    let pwm_outputs = [
+        Pwm::new_output_a(
+            peripherals.PWM_SLICE0,
+            peripherals.PIN_0,
+            pwm_config.clone(),
+        ),
+        Pwm::new_output_a(
+            peripherals.PWM_SLICE1,
+            peripherals.PIN_2,
+            pwm_config.clone(),
+        ),
+        Pwm::new_output_a(
+            peripherals.PWM_SLICE2,
+            peripherals.PIN_4,
+            pwm_config.clone(),
+        ),
+        Pwm::new_output_a(
+            peripherals.PWM_SLICE3,
+            peripherals.PIN_6,
+            pwm_config.clone(),
+        ),
+    ];
+    //end GPIO setup
+
+    spawner.spawn(cv_message_handler(pwm_outputs).unwrap());
     osc::listen(stack).await
 }
 
