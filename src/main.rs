@@ -1,12 +1,16 @@
 #![no_std]
 #![no_main]
 
-use core::cell::RefCell;
+use core::{
+    cell::RefCell,
+    sync::atomic::{AtomicBool, AtomicU8},
+};
 
-use crate::cv::{clocked_cv_output_handler, cv_message_handler};
+use crate::cv::{clock_change_handler, clocked_cv_output_handler, cv_message_handler};
 use cyw43::{JoinOptions, aligned_bytes};
 use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
 use defmt::info;
+use dsp_core::controls::{api_to_cv::APIToCV, clock::Clock};
 use emballoc;
 use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_net::{Config, StackResources};
@@ -54,8 +58,20 @@ fn UART0_IRQ() {
     }
 }
 
+pub static RUNNING: AtomicBool = AtomicBool::new(false);
+
+// TODO: evaluate whether this is fine or if a more complex shared type is necessary
+// 0 -> RealTime; 1 -> Clocked
+pub static MODE: AtomicU8 = AtomicU8::new(0);
+
 pub type SharedPwmOutputs = BlockingMutex<CriticalSectionRawMutex, RefCell<[Pwm<'static>; 4]>>;
 pub static PWM_OUTPUTS: StaticCell<SharedPwmOutputs> = StaticCell::new();
+
+pub type SharedClock = BlockingMutex<CriticalSectionRawMutex, RefCell<Clock>>;
+pub static CLOCK: StaticCell<SharedClock> = StaticCell::new();
+
+pub type SharedAPIToCV = BlockingMutex<CriticalSectionRawMutex, RefCell<APIToCV>>;
+pub static API_TO_CV: StaticCell<SharedAPIToCV> = StaticCell::new();
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -129,6 +145,11 @@ async fn main(spawner: Spawner) {
     info!("network connection up");
     // end network setup
 
+    // start clock setup
+    let clock = CLOCK.init(BlockingMutex::new(RefCell::new(Clock::new())));
+    spawner.spawn(clock_change_handler(clock).unwrap());
+    // end clock setup
+
     // start CV output setup
     // 2999 -> 50kHz; 3124 -> 48kHz
     // see https://pico.implrust.com/core-concepts/pwm/frequency-to-pwm-top-divider.html
@@ -157,11 +178,12 @@ async fn main(spawner: Spawner) {
             pwm_config.clone(),
         ),
     ])));
+    let api_to_cv = API_TO_CV.init(BlockingMutex::new(RefCell::new(APIToCV::new())));
 
     interrupt::UART0_IRQ.set_priority(Priority::P0);
     let cv_executor = CV_EXECUTOR.start(interrupt::UART0_IRQ);
-    cv_executor.spawn(cv_message_handler(pwm_outputs).unwrap());
-    cv_executor.spawn(clocked_cv_output_handler(pwm_outputs).unwrap());
+    cv_executor.spawn(cv_message_handler(pwm_outputs, api_to_cv).unwrap());
+    cv_executor.spawn(clocked_cv_output_handler(pwm_outputs, api_to_cv).unwrap());
     //end CV output setup
 
     osc::listen(stack).await
