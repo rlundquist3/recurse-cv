@@ -17,7 +17,7 @@ pub static TICK_MS: AtomicU16 = AtomicU16::new(0);
 pub static TICK_CHANGED: AtomicBool = AtomicBool::new(false);
 
 const TICK_CHECK_TIMEOUT: u64 = 500;
-const TRIGGER_DURATION: u64 = 5;
+const TRIGGER_DURATION: u64 = 8;
 const ZERO_CV: [f32; OUTPUT_COUNT] = [0.0; OUTPUT_COUNT];
 
 #[derive(Debug)]

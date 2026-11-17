@@ -9,6 +9,7 @@ use core::{
 use crate::{
     controls::{control_handler, encoder_click_handler, encoder_rotate_handler},
     cv::{TICK_MS, clock_change_handler, clocked_cv_output_handler, cv_message_handler},
+    display::{DEFAULT_TEXT_STYLE, DISPLAY_REFRESH, PAGE, Page, display_handler},
 };
 use cyw43::{JoinOptions, aligned_bytes};
 use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
@@ -32,10 +33,9 @@ use embassy_rp::{
 };
 use embassy_sync::blocking_mutex::{Mutex as BlockingMutex, raw::CriticalSectionRawMutex};
 use embedded_graphics::{
-    mono_font::{MonoTextStyleBuilder, ascii::FONT_6X10},
+    mono_font::{MonoTextStyle, MonoTextStyleBuilder, ascii::FONT_6X10},
     pixelcolor::BinaryColor,
-    prelude::Point,
-    prelude::*,
+    prelude::{Point, *},
     text::{Baseline, Text},
 };
 use ssd1306::{I2CDisplayInterface, Ssd1306Async, prelude::*};
@@ -47,6 +47,7 @@ extern crate alloc;
 
 mod controls;
 mod cv;
+mod display;
 mod osc;
 
 /// Tell the Boot ROM about our application
@@ -94,6 +95,28 @@ async fn main(spawner: Spawner) {
     info!("=======================");
 
     let peripherals = embassy_rp::init(Default::default());
+
+    // start display setup
+    let sda = peripherals.PIN_14;
+    let scl = peripherals.PIN_15;
+    let mut i2c_config = I2cConfig::default();
+    i2c_config.frequency = 400_000;
+
+    let i2c_bus = I2c::new_async(peripherals.I2C1, scl, sda, Irqs, i2c_config);
+    let i2c_interface = I2CDisplayInterface::new_custom_address(i2c_bus, 0x3D);
+
+    let mut display = Ssd1306Async::new(i2c_interface, DisplaySize128x64, DisplayRotation::Rotate0)
+        .into_buffered_graphics_mode();
+    display
+        .init()
+        .await
+        .expect("failed to initialize the display");
+    spawner.spawn(display_handler(display).unwrap());
+
+    DISPLAY_REFRESH.send(true).await;
+    let page_tx = PAGE.sender();
+    page_tx.send(Page::Loading);
+    // end display setup
 
     // start network setup
     const NETWORK_SSID: &str = env!("NETWORK_SSID");
@@ -158,36 +181,6 @@ async fn main(spawner: Spawner) {
 
     info!("network connection up");
     // end network setup
-
-    // start display setup
-    let sda = peripherals.PIN_14;
-    let scl = peripherals.PIN_15;
-    let mut i2c_config = I2cConfig::default();
-    i2c_config.frequency = 400_000;
-
-    let i2c_bus = I2c::new_async(peripherals.I2C1, scl, sda, Irqs, i2c_config);
-    let i2c_interface = I2CDisplayInterface::new_custom_address(i2c_bus, 0x3D);
-
-    let mut display = Ssd1306Async::new(i2c_interface, DisplaySize128x64, DisplayRotation::Rotate0)
-        .into_buffered_graphics_mode();
-    display
-        .init()
-        .await
-        .expect("failed to initialize the display");
-
-    let text_style = MonoTextStyleBuilder::new()
-        .font(&FONT_6X10)
-        .text_color(BinaryColor::On)
-        .build();
-    info!("sending text to display");
-    Text::with_baseline("Recurse CV", Point::new(0, 16), text_style, Baseline::Top)
-        .draw(&mut display)
-        .expect("failed to draw text to display");
-    display
-        .flush()
-        .await
-        .expect("failed to flush data to display");
-    // end display setup
 
     // start control setup
     let clk = Input::new(peripherals.PIN_16, Pull::Up);
