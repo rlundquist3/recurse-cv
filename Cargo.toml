@@ -41,6 +41,7 @@ embassy-rp = { version = "0.10.0", features = [
 ] }
 embassy-sync = "0.8.0"
 embassy-time = { version = "0.5.1" }
+embedded-graphics = "0.8.2"
 embedded-io-async = "0.7"
 embedded-tls = { version = "0.19", default-features = false, features = [
   "defmt",
@@ -49,6 +50,7 @@ panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde-json-core = { version = "0.7", features = ["defmt"] }
 serial-line-ip = "0.5.0"
+ssd1306 = { version = "0.10.0", features = ["async"] }
 static_cell = "2.1.1"
 
 [build-dependencies]

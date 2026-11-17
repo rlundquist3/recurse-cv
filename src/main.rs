@@ -20,13 +20,22 @@ use embassy_rp::{
     clocks::RoscRng,
     dma,
     gpio::{Level, Output},
+    i2c::{self, Config as I2cConfig, I2c},
     interrupt,
     interrupt::{InterruptExt, Priority},
-    peripherals::{DMA_CH0, PIO0},
+    peripherals::{DMA_CH0, I2C1, PIO0},
     pio::{InterruptHandler, Pio},
     pwm::Pwm,
 };
 use embassy_sync::blocking_mutex::{Mutex as BlockingMutex, raw::CriticalSectionRawMutex};
+use embedded_graphics::{
+    mono_font::{MonoTextStyleBuilder, ascii::FONT_6X10},
+    pixelcolor::BinaryColor,
+    prelude::Point,
+    prelude::*,
+    text::{Baseline, Text},
+};
+use ssd1306::{I2CDisplayInterface, Ssd1306Async, prelude::*};
 use static_cell::StaticCell;
 
 use {defmt_rtt as _, panic_probe as _};
@@ -45,8 +54,9 @@ pub static IMAGE_DEF: ImageDef = embassy_rp::block::ImageDef::secure_exe();
 static ALLOCATOR: emballoc::Allocator<4096> = emballoc::Allocator::new();
 
 bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => InterruptHandler<PIO0>;
     DMA_IRQ_0 => dma::InterruptHandler<DMA_CH0>;
+    I2C1_IRQ => i2c::InterruptHandler<I2C1>;
+    PIO0_IRQ_0 => InterruptHandler<PIO0>;
 });
 
 static CV_EXECUTOR: InterruptExecutor = InterruptExecutor::new();
@@ -144,6 +154,36 @@ async fn main(spawner: Spawner) {
 
     info!("network connection up");
     // end network setup
+
+    // start display setup
+    let sda = peripherals.PIN_14;
+    let scl = peripherals.PIN_15;
+    let mut i2c_config = I2cConfig::default();
+    i2c_config.frequency = 400_000;
+
+    let i2c_bus = I2c::new_async(peripherals.I2C1, scl, sda, Irqs, i2c_config);
+    let i2c_interface = I2CDisplayInterface::new_custom_address(i2c_bus, 0x3D);
+
+    let mut display = Ssd1306Async::new(i2c_interface, DisplaySize128x64, DisplayRotation::Rotate0)
+        .into_buffered_graphics_mode();
+    display
+        .init()
+        .await
+        .expect("failed to initialize the display");
+
+    let text_style = MonoTextStyleBuilder::new()
+        .font(&FONT_6X10)
+        .text_color(BinaryColor::On)
+        .build();
+    info!("sending text to display");
+    Text::with_baseline("Recurse CV", Point::new(0, 16), text_style, Baseline::Top)
+        .draw(&mut display)
+        .expect("failed to draw text to display");
+    display
+        .flush()
+        .await
+        .expect("failed to flush data to display");
+    // end display setup
 
     // start clock setup
     let clock = CLOCK.init(BlockingMutex::new(RefCell::new(Clock::new())));
