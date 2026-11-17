@@ -3,10 +3,10 @@
 
 use core::{
     cell::RefCell,
-    sync::atomic::{AtomicBool, AtomicU8},
+    sync::atomic::{AtomicBool, AtomicU8, Ordering},
 };
 
-use crate::cv::{clock_change_handler, clocked_cv_output_handler, cv_message_handler};
+use crate::cv::{TICK_MS, clock_change_handler, clocked_cv_output_handler, cv_message_handler};
 use cyw43::{JoinOptions, aligned_bytes};
 use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
 use defmt::info;
@@ -58,7 +58,7 @@ fn UART0_IRQ() {
     }
 }
 
-pub static RUNNING: AtomicBool = AtomicBool::new(false);
+pub static RUNNING: AtomicBool = AtomicBool::new(true);
 
 // TODO: evaluate whether this is fine or if a more complex shared type is necessary
 // 0 -> RealTime; 1 -> Clocked
@@ -147,6 +147,7 @@ async fn main(spawner: Spawner) {
 
     // start clock setup
     let clock = CLOCK.init(BlockingMutex::new(RefCell::new(Clock::new())));
+    clock.lock(|c: &RefCell<Clock>| TICK_MS.store(c.borrow().get_tick_ms(), Ordering::Relaxed));
     spawner.spawn(clock_change_handler(clock).unwrap());
     // end clock setup
 
@@ -158,8 +159,8 @@ async fn main(spawner: Spawner) {
     pwm_config.divider = 1.into();
     let pwm_outputs = PWM_OUTPUTS.init(BlockingMutex::new(RefCell::new([
         Pwm::new_output_a(
-            peripherals.PWM_SLICE0,
-            peripherals.PIN_0,
+            peripherals.PWM_SLICE6,
+            peripherals.PIN_12,
             pwm_config.clone(),
         ),
         Pwm::new_output_a(

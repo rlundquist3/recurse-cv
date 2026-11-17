@@ -17,6 +17,7 @@ pub static TICK_MS: AtomicU16 = AtomicU16::new(0);
 pub static TICK_CHANGED: AtomicBool = AtomicBool::new(false);
 
 const TICK_CHECK_TIMEOUT: u64 = 500;
+const TRIGGER_DURATION: u64 = 5;
 const ZERO_CV: [f32; OUTPUT_COUNT] = [0.0; OUTPUT_COUNT];
 
 #[derive(Debug)]
@@ -48,7 +49,7 @@ pub async fn trigger(pwm_outputs: &'static SharedPwmOutputs, output_values: [f32
     info!("real-time trigger sent");
     // 5ms trigger
     // TODO: add settings for gate
-    Timer::after_millis(5).await;
+    Timer::after_millis(TRIGGER_DURATION).await;
     set_pwm_duty_cycles(pwm_outputs, ZERO_CV);
 }
 
@@ -82,6 +83,37 @@ pub async fn cv_message_handler(
 }
 
 #[embassy_executor::task]
+pub async fn clocked_cv_output_handler(
+    pwm_outputs: &'static SharedPwmOutputs,
+    api_to_cv: &'static SharedAPIToCV,
+) {
+    let mut ticker = Ticker::every(Duration::from_millis(
+        TICK_MS.load(Ordering::Relaxed).max(1) as u64,
+    ));
+
+    loop {
+        if let Some(output_values) = api_to_cv.lock(|a: &RefCell<APIToCV>| {
+            let mut api_to_cv = a.borrow_mut();
+            match api_to_cv.get_mode() {
+                APIToCVModes::RealTime => None,
+                APIToCVModes::Clocked => Some(api_to_cv.tick()),
+            }
+        }) {
+            trigger(pwm_outputs, output_values).await;
+            info!("sent clocked trigger event");
+        }
+
+        if TICK_CHANGED.swap(false, Ordering::Relaxed) {
+            ticker = Ticker::every(Duration::from_millis(
+                TICK_MS.load(Ordering::Relaxed).max(1) as u64,
+            ));
+        }
+
+        ticker.next().await;
+    }
+}
+
+#[embassy_executor::task]
 pub async fn clock_change_handler(clock: &'static SharedClock) {
     loop {
         clock.lock(|c: &RefCell<Clock>| {
@@ -94,26 +126,4 @@ pub async fn clock_change_handler(clock: &'static SharedClock) {
         });
         Timer::after_millis(TICK_CHECK_TIMEOUT).await;
     }
-}
-
-#[embassy_executor::task]
-pub async fn clocked_cv_output_handler(
-    pwm_outputs: &'static SharedPwmOutputs,
-    api_to_cv: &'static SharedAPIToCV,
-) {
-    let mut ticker = Ticker::every(Duration::from_millis(TICK_MS.load(Ordering::Relaxed) as u64));
-
-    loop {
-        let output_values = api_to_cv.lock(|a: &RefCell<APIToCV>| a.borrow_mut().tick());
-        trigger(pwm_outputs, output_values).await;
-        info!("sent clocked trigger event");
-
-        if TICK_CHANGED.load(Ordering::Relaxed) {
-            ticker = Ticker::every(Duration::from_millis(TICK_MS.load(Ordering::Relaxed) as u64));
-        }
-
-        ticker.next().await;
-    }
-    // TODO: call tick
-    // TODO: set_pwm_duty_cycles(pwm_outputs, output_values);
 }
