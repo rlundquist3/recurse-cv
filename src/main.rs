@@ -6,7 +6,10 @@ use core::{
     sync::atomic::{AtomicBool, AtomicU8, Ordering},
 };
 
-use crate::cv::{TICK_MS, clock_change_handler, clocked_cv_output_handler, cv_message_handler};
+use crate::{
+    controls::{control_handler, encoder_click_handler, encoder_rotate_handler},
+    cv::{TICK_MS, clock_change_handler, clocked_cv_output_handler, cv_message_handler},
+};
 use cyw43::{JoinOptions, aligned_bytes};
 use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
 use defmt::info;
@@ -19,7 +22,7 @@ use embassy_rp::{
     block::ImageDef,
     clocks::RoscRng,
     dma,
-    gpio::{Level, Output},
+    gpio::{Input, Level, Output, Pull},
     i2c::{self, Config as I2cConfig, I2c},
     interrupt,
     interrupt::{InterruptExt, Priority},
@@ -42,6 +45,7 @@ use {defmt_rtt as _, panic_probe as _};
 
 extern crate alloc;
 
+mod controls;
 mod cv;
 mod osc;
 
@@ -184,6 +188,16 @@ async fn main(spawner: Spawner) {
         .await
         .expect("failed to flush data to display");
     // end display setup
+
+    // start control setup
+    let clk = Input::new(peripherals.PIN_16, Pull::Up);
+    let dt = Input::new(peripherals.PIN_17, Pull::Up);
+    let sw = Input::new(peripherals.PIN_18, Pull::Up);
+
+    spawner.spawn(encoder_rotate_handler(clk, dt).unwrap());
+    spawner.spawn(encoder_click_handler(sw).unwrap());
+    spawner.spawn(control_handler().unwrap());
+    // end control setup
 
     // start clock setup
     let clock = CLOCK.init(BlockingMutex::new(RefCell::new(Clock::new())));
