@@ -8,7 +8,7 @@ use embedded_layout::{
     object_chain::Chain,
 };
 
-use crate::display::{DEFAULT_TEXT_STYLE, LARGE_TEXT_STYLE};
+use crate::display::shared::{DEFAULT_TEXT_STYLE, LARGE_TEXT_STYLE};
 
 pub struct LoadingLayout<'a> {
     display_area: Rectangle,

@@ -1,4 +1,10 @@
+use core::{cell::RefCell, sync::atomic::Ordering};
+
 use defmt::warn;
+use dsp_core::controls::{
+    api_to_cv::{self, APIToCVModes},
+    clock::Clock,
+};
 use embassy_rp::{
     i2c::{self, I2c},
     peripherals::I2C1,
@@ -16,9 +22,20 @@ use embedded_graphics::{
 };
 use ssd1306::{Ssd1306, Ssd1306Async, prelude::*};
 
-use crate::display::loading::LoadingLayout;
+use crate::{
+    MODE, NETWORK_CONNECTED, RUNNING, SharedAPIToCV, SharedClock,
+    display::{
+        clocked::ClockedLayout, loading::LoadingLayout, mode::ModeSelectionLayout,
+        real_time::RealTimeLayout,
+    },
+};
 
+pub mod clocked;
+pub mod footer;
 mod loading;
+pub mod mode;
+mod real_time;
+pub mod shared;
 
 pub type Display = Ssd1306Async<
     I2CInterface<I2c<'static, I2C1, i2c::Async>>,
@@ -30,29 +47,65 @@ pub type DisplayError = <Display as DrawTarget>::Error;
 #[derive(Debug, Clone)]
 pub enum Page {
     Loading,
+    ModeSelection,
+    RealTime,
+    Clocked,
 }
 
-pub static DISPLAY_REFRESH: Channel<CriticalSectionRawMutex, bool, 1> = Channel::new();
-pub static PAGE: Watch<CriticalSectionRawMutex, Page, 2> = Watch::new();
+#[derive(Debug, Clone, Copy)]
+pub struct UIState {
+    navigation_location: usize,
+    mode: APIToCVModes,
+    running: bool,
+    network_connected: bool,
+}
 
-pub const DEFAULT_TEXT_STYLE: MonoTextStyle<'_, BinaryColor> =
-    MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-pub const LARGE_TEXT_STYLE: MonoTextStyle<'_, BinaryColor> =
-    MonoTextStyle::new(&FONT_10X20, BinaryColor::On);
+pub static DISPLAY_REFRESH: Channel<CriticalSectionRawMutex, bool, 2> = Channel::new();
+pub static LOADING_MESSAGE: Channel<CriticalSectionRawMutex, &str, 4> = Channel::new();
+pub static PAGE: Watch<CriticalSectionRawMutex, Page, 2> = Watch::new();
+pub static NAVIGATION_LOCATION: Watch<CriticalSectionRawMutex, usize, 2> = Watch::new();
 
 #[embassy_executor::task]
-pub async fn display_handler(mut display: Display) {
+pub async fn display_handler(
+    mut display: Display,
+    api_to_cv: &'static SharedAPIToCV,
+    clock: &'static SharedClock,
+) {
     let display_area = display.bounding_box();
     let mut page_rx = PAGE.receiver().unwrap();
+    let mut navigation_rx = NAVIGATION_LOCATION.receiver().unwrap();
 
     loop {
-        DISPLAY_REFRESH.receive().await;
+        let _ = DISPLAY_REFRESH.receive().await;
         display.clear_buffer();
-
         let page = page_rx.get().await;
+        let navigation_location = navigation_rx.get().await;
+
+        let mode = match MODE.load(Ordering::Relaxed) {
+            1 => APIToCVModes::Clocked,
+            _ => APIToCVModes::RealTime,
+        };
+        let state = UIState {
+            navigation_location,
+            mode,
+            running: RUNNING.load(Ordering::Relaxed),
+            network_connected: NETWORK_CONNECTED.load(Ordering::Relaxed),
+        };
 
         let d = match page {
-            Page::Loading => LoadingLayout::new(display_area, "Loading...").draw(&mut display),
+            Page::Loading => {
+                let message = match LOADING_MESSAGE.try_peek() {
+                    Ok(message) => message,
+                    Err(_) => "Loading...",
+                };
+                LoadingLayout::new(display_area, message).draw(&mut display)
+            }
+            Page::ModeSelection => ModeSelectionLayout::new(display_area, state).draw(&mut display),
+            Page::RealTime => RealTimeLayout::new(display_area, state).draw(&mut display),
+            Page::Clocked => {
+                let clock_clone = clock.lock(|c: &RefCell<Clock>| c.borrow().clone());
+                ClockedLayout::new(display_area, state, clock_clone).draw(&mut display)
+            }
         };
         if d.is_err() {
             warn!("failed to draw");

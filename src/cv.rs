@@ -2,7 +2,7 @@ use crate::{RUNNING, SharedAPIToCV, SharedClock, SharedPwmOutputs};
 use alloc::vec::Vec;
 use core::{
     cell::RefCell,
-    sync::atomic::{AtomicBool, AtomicU16, Ordering},
+    sync::atomic::{AtomicBool, AtomicI16, AtomicU16, Ordering},
 };
 use defmt::{info, warn};
 use dsp_core::controls::{
@@ -26,6 +26,9 @@ pub struct CVMessage {
     pub value: f32,
 }
 
+pub static INPUT_MONITOR: AtomicU16 = AtomicU16::new(0);
+pub static OUTPUT_MONITOR: AtomicU16 = AtomicU16::new(0);
+
 pub static OSC_TO_CV_BUFFER: Channel<CriticalSectionRawMutex, CVMessage, 16> = Channel::new();
 
 const PRECISION_MULT: u16 = 10_000;
@@ -47,6 +50,15 @@ fn set_pwm_duty_cycles(pwm_outputs: &'static SharedPwmOutputs, values: [f32; OUT
 pub async fn trigger(pwm_outputs: &'static SharedPwmOutputs, output_values: [f32; OUTPUT_COUNT]) {
     set_pwm_duty_cycles(pwm_outputs, output_values);
     info!("real-time trigger sent");
+
+    let output_monitor_value = output_values.iter().enumerate().fold(0u16, |acc, (i, v)| {
+        if *v > 0.0 {
+            acc | 2_u16.pow(i as u32)
+        } else {
+            acc
+        }
+    });
+    OUTPUT_MONITOR.store(output_monitor_value, Ordering::Relaxed);
     // 5ms trigger
     // TODO: add settings for gate
     Timer::after_millis(TRIGGER_DURATION).await;
@@ -68,6 +80,10 @@ pub async fn cv_message_handler(
             if let Some(output_values) = api_to_cv.lock(|a: &RefCell<APIToCV>| {
                 let mut api_to_cv = a.borrow_mut();
                 api_to_cv.receive_input(message.input_index, value);
+                INPUT_MONITOR.store(
+                    2_u16.pow((message.input_index - 1) as u32),
+                    Ordering::Relaxed,
+                );
                 match api_to_cv.get_mode() {
                     APIToCVModes::RealTime => Some(api_to_cv.realtime_output(message.input_index)),
                     APIToCVModes::Clocked => None,

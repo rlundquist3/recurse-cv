@@ -9,7 +9,9 @@ use core::{
 use crate::{
     controls::{control_handler, encoder_click_handler, encoder_rotate_handler},
     cv::{TICK_MS, clock_change_handler, clocked_cv_output_handler, cv_message_handler},
-    display::{DEFAULT_TEXT_STYLE, DISPLAY_REFRESH, PAGE, Page, display_handler},
+    display::{
+        DISPLAY_REFRESH, LOADING_MESSAGE, PAGE, Page, display_handler, shared::DEFAULT_TEXT_STYLE,
+    },
 };
 use cyw43::{JoinOptions, aligned_bytes};
 use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
@@ -74,6 +76,7 @@ fn UART0_IRQ() {
 }
 
 pub static RUNNING: AtomicBool = AtomicBool::new(true);
+pub static NETWORK_CONNECTED: AtomicBool = AtomicBool::new(false);
 
 // TODO: evaluate whether this is fine or if a more complex shared type is necessary
 // 0 -> RealTime; 1 -> Clocked
@@ -94,7 +97,51 @@ async fn main(spawner: Spawner) {
     info!("Recurse Control Voltage");
     info!("=======================");
 
+    let page_tx = PAGE.sender();
+
     let peripherals = embassy_rp::init(Default::default());
+
+    // start clock setup
+    let clock = CLOCK.init(BlockingMutex::new(RefCell::new(Clock::new())));
+    clock.lock(|c: &RefCell<Clock>| TICK_MS.store(c.borrow().get_tick_ms(), Ordering::Relaxed));
+    spawner.spawn(clock_change_handler(clock).unwrap());
+    // end clock setup
+
+    // start CV output setup
+    // 2999 -> 50kHz; 3124 -> 48kHz
+    // see https://pico.implrust.com/core-concepts/pwm/frequency-to-pwm-top-divider.html
+    let mut pwm_config: embassy_rp::pwm::Config = Default::default();
+    pwm_config.top = 2999;
+    pwm_config.divider = 1.into();
+    let pwm_outputs = PWM_OUTPUTS.init(BlockingMutex::new(RefCell::new([
+        Pwm::new_output_a(
+            peripherals.PWM_SLICE6,
+            peripherals.PIN_12,
+            pwm_config.clone(),
+        ),
+        Pwm::new_output_a(
+            peripherals.PWM_SLICE1,
+            peripherals.PIN_2,
+            pwm_config.clone(),
+        ),
+        Pwm::new_output_a(
+            peripherals.PWM_SLICE2,
+            peripherals.PIN_4,
+            pwm_config.clone(),
+        ),
+        Pwm::new_output_a(
+            peripherals.PWM_SLICE3,
+            peripherals.PIN_6,
+            pwm_config.clone(),
+        ),
+    ])));
+    let api_to_cv = API_TO_CV.init(BlockingMutex::new(RefCell::new(APIToCV::new())));
+
+    interrupt::UART0_IRQ.set_priority(Priority::P0);
+    let cv_executor = CV_EXECUTOR.start(interrupt::UART0_IRQ);
+    cv_executor.spawn(cv_message_handler(pwm_outputs, api_to_cv).unwrap());
+    cv_executor.spawn(clocked_cv_output_handler(pwm_outputs, api_to_cv).unwrap());
+    //end CV output setup
 
     // start display setup
     let sda = peripherals.PIN_14;
@@ -111,10 +158,12 @@ async fn main(spawner: Spawner) {
         .init()
         .await
         .expect("failed to initialize the display");
-    spawner.spawn(display_handler(display).unwrap());
+    spawner.spawn(display_handler(display, api_to_cv, clock).unwrap());
 
+    LOADING_MESSAGE
+        .send("Establishing network connection")
+        .await;
     DISPLAY_REFRESH.send(true).await;
-    let page_tx = PAGE.sender();
     page_tx.send(Page::Loading);
     // end display setup
 
@@ -180,6 +229,7 @@ async fn main(spawner: Spawner) {
     stack.wait_config_up().await;
 
     info!("network connection up");
+    NETWORK_CONNECTED.store(true, Ordering::Relaxed);
     // end network setup
 
     // start control setup
@@ -189,50 +239,13 @@ async fn main(spawner: Spawner) {
 
     spawner.spawn(encoder_rotate_handler(clk, dt).unwrap());
     spawner.spawn(encoder_click_handler(sw).unwrap());
-    spawner.spawn(control_handler().unwrap());
+    spawner.spawn(control_handler(api_to_cv, clock).unwrap());
     // end control setup
 
-    // start clock setup
-    let clock = CLOCK.init(BlockingMutex::new(RefCell::new(Clock::new())));
-    clock.lock(|c: &RefCell<Clock>| TICK_MS.store(c.borrow().get_tick_ms(), Ordering::Relaxed));
-    spawner.spawn(clock_change_handler(clock).unwrap());
-    // end clock setup
+    LOADING_MESSAGE.send("Loading...").await;
+    DISPLAY_REFRESH.send(true).await;
 
-    // start CV output setup
-    // 2999 -> 50kHz; 3124 -> 48kHz
-    // see https://pico.implrust.com/core-concepts/pwm/frequency-to-pwm-top-divider.html
-    let mut pwm_config: embassy_rp::pwm::Config = Default::default();
-    pwm_config.top = 2999;
-    pwm_config.divider = 1.into();
-    let pwm_outputs = PWM_OUTPUTS.init(BlockingMutex::new(RefCell::new([
-        Pwm::new_output_a(
-            peripherals.PWM_SLICE6,
-            peripherals.PIN_12,
-            pwm_config.clone(),
-        ),
-        Pwm::new_output_a(
-            peripherals.PWM_SLICE1,
-            peripherals.PIN_2,
-            pwm_config.clone(),
-        ),
-        Pwm::new_output_a(
-            peripherals.PWM_SLICE2,
-            peripherals.PIN_4,
-            pwm_config.clone(),
-        ),
-        Pwm::new_output_a(
-            peripherals.PWM_SLICE3,
-            peripherals.PIN_6,
-            pwm_config.clone(),
-        ),
-    ])));
-    let api_to_cv = API_TO_CV.init(BlockingMutex::new(RefCell::new(APIToCV::new())));
-
-    interrupt::UART0_IRQ.set_priority(Priority::P0);
-    let cv_executor = CV_EXECUTOR.start(interrupt::UART0_IRQ);
-    cv_executor.spawn(cv_message_handler(pwm_outputs, api_to_cv).unwrap());
-    cv_executor.spawn(clocked_cv_output_handler(pwm_outputs, api_to_cv).unwrap());
-    //end CV output setup
+    page_tx.send(Page::ModeSelection);
 
     osc::listen(stack).await
 }
