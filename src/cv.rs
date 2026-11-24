@@ -1,12 +1,11 @@
 use crate::{RUNNING, SharedAPIToCV, SharedClock, SharedPwmOutputs};
-use alloc::vec::Vec;
 use core::{
     cell::RefCell,
-    sync::atomic::{AtomicBool, AtomicI16, AtomicU16, Ordering},
+    sync::atomic::{AtomicBool, AtomicU16, Ordering},
 };
-use defmt::{info, warn};
+use defmt::info;
 use dsp_core::controls::{
-    api_to_cv::{self, APIToCV, APIToCVModes, OUTPUT_COUNT},
+    api_to_cv::{APIToCV, APIToCVModes, OUTPUT_COUNT},
     clock::Clock,
 };
 use embassy_rp::pwm::{Pwm, SetDutyCycle};

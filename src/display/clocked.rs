@@ -2,10 +2,7 @@ use core::fmt::Write;
 use core::sync::atomic::Ordering;
 use heapless::String;
 
-use dsp_core::controls::{
-    api_to_cv::APIToCVModes,
-    clock::{Clock, Note},
-};
+use dsp_core::controls::clock::{Clock, Note};
 use embedded_graphics::{
     Drawable,
     draw_target::DrawTarget,
@@ -15,7 +12,6 @@ use embedded_graphics::{
     text::Text,
 };
 use embedded_layout::{
-    View,
     align::{Align, horizontal, vertical},
     layout::linear::{LinearLayout, spacing},
     object_chain::Chain,
@@ -27,7 +23,7 @@ use crate::{
     display::{
         UIState,
         footer::{FOOTER_ITEM_COUNT, Footer},
-        shared::{DEFAULT_TEXT_STYLE, EMPTY_STYLE, FILLED_STYLE, LARGE_TEXT_STYLE, SelectableItem},
+        shared::{DEFAULT_TEXT_STYLE, EMPTY_STYLE, FILLED_STYLE, SelectableItem},
     },
 };
 
@@ -49,8 +45,8 @@ impl ClockedLayout {
         let mut bpm: String<8> = String::new();
         let mut division: String<8> = String::new();
 
-        write!(per_measure, "{}", clock.time_signature.per_measure);
-        write!(
+        let _ = write!(per_measure, "{}", clock.time_signature.per_measure);
+        let _ = write!(
             base,
             "{}",
             match clock.time_signature.base {
@@ -58,8 +54,8 @@ impl ClockedLayout {
                 _ => 4,
             }
         );
-        write!(bpm, "{} bpm", clock.bpm);
-        write!(division, "{:?}", clock.division);
+        let _ = write!(bpm, "{} bpm", clock.bpm);
+        let _ = write!(division, "{:?}", clock.division);
 
         ClockedLayout {
             display_area,

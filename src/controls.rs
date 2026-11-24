@@ -3,7 +3,6 @@ use core::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use defmt::info;
 use dsp_core::controls::clock::Clock;
 use embassy_rp::gpio::Input;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
@@ -21,7 +20,7 @@ const DEBOUNCE: Duration = Duration::from_millis(250);
 
 pub static CONTROL_BUFFER: Channel<CriticalSectionRawMutex, EncoderEvent, 16> = Channel::new();
 
-const IS_EDITING: AtomicBool = AtomicBool::new(false);
+static IS_EDITING: AtomicBool = AtomicBool::new(false);
 
 const REALTIME: usize = FOOTER_ITEM_COUNT;
 const CLOCKED: usize = FOOTER_ITEM_COUNT + 1;
@@ -84,13 +83,13 @@ pub async fn control_handler(_api_to_cv: &'static SharedAPIToCV, clock: &'static
         let encoder_event = buffer_rx.receive().await;
         match page {
             Page::ModeSelection => {
-                mode_handler(encoder_event);
+                mode_handler(encoder_event).await;
             }
             Page::RealTime => {
-                real_time_handler(encoder_event);
+                real_time_handler(encoder_event).await;
             }
             Page::Clocked => {
-                clocked_handler(encoder_event, clock);
+                clocked_handler(encoder_event, clock).await;
             }
             _ => {}
         }
@@ -153,7 +152,7 @@ async fn mode_handler(encoder_event: EncoderEvent) {
 }
 
 async fn real_time_handler(encoder_event: EncoderEvent) {
-    let page_tx = PAGE.sender();
+    let _page_tx = PAGE.sender();
     let navigation_tx = NAVIGATION_LOCATION.sender();
     let mut navigation_rx = NAVIGATION_LOCATION.receiver().unwrap();
 
@@ -182,7 +181,7 @@ async fn real_time_handler(encoder_event: EncoderEvent) {
 }
 
 async fn clocked_handler(encoder_event: EncoderEvent, clock: &'static SharedClock) {
-    let page_tx = PAGE.sender();
+    let _page_tx = PAGE.sender();
     let navigation_tx = NAVIGATION_LOCATION.sender();
     let mut navigation_rx = NAVIGATION_LOCATION.receiver().unwrap();
 
@@ -205,16 +204,16 @@ async fn clocked_handler(encoder_event: EncoderEvent, clock: &'static SharedCloc
 
                     match navigation_location {
                         PER_MEASURE => {
-                            clock.increment_time_signature_per_measure();
+                            let _ = clock.increment_time_signature_per_measure();
                         }
                         BASE => {
-                            clock.increment_time_signature_base();
+                            let _ = clock.increment_time_signature_base();
                         }
                         BPM => {
-                            clock.increment_bpm();
+                            let _ = clock.increment_bpm();
                         }
                         DIVISION => {
-                            clock.increment_division();
+                            let _ = clock.increment_division();
                         }
                         _ => {}
                     };
@@ -235,16 +234,16 @@ async fn clocked_handler(encoder_event: EncoderEvent, clock: &'static SharedCloc
 
                     match navigation_location {
                         PER_MEASURE => {
-                            clock.decrement_time_signature_per_measure();
+                            let _ = clock.decrement_time_signature_per_measure();
                         }
                         BASE => {
-                            clock.decrement_time_signature_base();
+                            let _ = clock.decrement_time_signature_base();
                         }
                         BPM => {
-                            clock.decrement_bpm();
+                            let _ = clock.decrement_bpm();
                         }
                         DIVISION => {
-                            clock.decrement_division();
+                            let _ = clock.decrement_division();
                         }
                         _ => {}
                     };

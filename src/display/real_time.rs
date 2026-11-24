@@ -1,16 +1,14 @@
 use core::sync::atomic::Ordering;
 
-use dsp_core::controls::api_to_cv::APIToCVModes;
 use embedded_graphics::{
     Drawable,
     draw_target::DrawTarget,
-    geometry::{Point, Size},
+    geometry::Point,
     pixelcolor::BinaryColor,
-    primitives::{Circle, Primitive, PrimitiveStyle, Rectangle},
+    primitives::{Circle, Primitive, Rectangle},
     text::Text,
 };
 use embedded_layout::{
-    View,
     align::{Align, horizontal, vertical},
     layout::linear::{LinearLayout, spacing},
     object_chain::Chain,
@@ -22,7 +20,7 @@ use crate::{
     display::{
         UIState,
         footer::Footer,
-        shared::{DEFAULT_TEXT_STYLE, EMPTY_STYLE, FILLED_STYLE, LARGE_TEXT_STYLE, SelectableItem},
+        shared::{EMPTY_STYLE, FILLED_STYLE, LARGE_TEXT_STYLE},
     },
 };
 

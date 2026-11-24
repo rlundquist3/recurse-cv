@@ -10,7 +10,7 @@ use crate::{
     controls::{control_handler, encoder_click_handler, encoder_rotate_handler},
     cv::{TICK_MS, clock_change_handler, clocked_cv_output_handler, cv_message_handler},
     display::{
-        DISPLAY_REFRESH, LOADING_MESSAGE, PAGE, Page, display_handler, shared::DEFAULT_TEXT_STYLE,
+        DISPLAY_REFRESH, LOADING_MESSAGE, PAGE, Page, display_handler,
     },
 };
 use cyw43::{JoinOptions, aligned_bytes};
@@ -34,12 +34,6 @@ use embassy_rp::{
     pwm::Pwm,
 };
 use embassy_sync::blocking_mutex::{Mutex as BlockingMutex, raw::CriticalSectionRawMutex};
-use embedded_graphics::{
-    mono_font::{MonoTextStyle, MonoTextStyleBuilder, ascii::FONT_6X10},
-    pixelcolor::BinaryColor,
-    prelude::{Point, *},
-    text::{Baseline, Text},
-};
 use ssd1306::{I2CDisplayInterface, Ssd1306Async, prelude::*};
 use static_cell::StaticCell;
 

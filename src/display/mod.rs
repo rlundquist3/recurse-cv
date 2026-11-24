@@ -1,26 +1,15 @@
 use core::{cell::RefCell, sync::atomic::Ordering};
 
 use defmt::warn;
-use dsp_core::controls::{
-    api_to_cv::{self, APIToCVModes},
-    clock::Clock,
-};
+use dsp_core::controls::{api_to_cv::APIToCVModes, clock::Clock};
 use embassy_rp::{
     i2c::{self, I2c},
     peripherals::I2C1,
 };
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, watch::Watch};
 use embassy_time::Timer;
-use embedded_graphics::{
-    mono_font::{
-        MonoTextStyle,
-        ascii::{FONT_6X10, FONT_10X20},
-    },
-    pixelcolor::BinaryColor,
-    prelude::*,
-    text::Text,
-};
-use ssd1306::{Ssd1306, Ssd1306Async, prelude::*};
+use embedded_graphics::prelude::*;
+use ssd1306::{Ssd1306Async, prelude::*};
 
 use crate::{
     MODE, NETWORK_CONNECTED, RUNNING, SharedAPIToCV, SharedClock,
@@ -68,7 +57,7 @@ pub static NAVIGATION_LOCATION: Watch<CriticalSectionRawMutex, usize, 2> = Watch
 #[embassy_executor::task]
 pub async fn display_handler(
     mut display: Display,
-    api_to_cv: &'static SharedAPIToCV,
+    _api_to_cv: &'static SharedAPIToCV,
     clock: &'static SharedClock,
 ) {
     let display_area = display.bounding_box();
@@ -113,7 +102,7 @@ pub async fn display_handler(
 
         if display.flush().await.is_err() {
             Timer::after_millis(2).await;
-            display.flush().await.is_ok();
+            let _ = display.flush().await.is_ok();
         }
     }
 }

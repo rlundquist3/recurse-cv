@@ -29,10 +29,6 @@ impl<'a> Item<'a> {
         Item { text, active }
     }
 
-    pub fn set_active(&mut self, active: bool) {
-        self.active = active;
-    }
-
     pub fn format(self) -> ComposedItem<'a> {
         let button_style = PrimitiveStyleBuilder::new()
             .stroke_width(match self.active {

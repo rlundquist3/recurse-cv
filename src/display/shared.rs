@@ -16,8 +16,6 @@ use embedded_layout::{
     object_chain::Chain,
 };
 
-pub const LINE_STYLE: PrimitiveStyle<BinaryColor> = PrimitiveStyle::with_stroke(BinaryColor::On, 1);
-
 pub const EMPTY_STYLE: PrimitiveStyle<BinaryColor> = PrimitiveStyle::new();
 pub const SELECTED_OPTION_STYLE: PrimitiveStyle<BinaryColor> =
     PrimitiveStyle::with_stroke(BinaryColor::On, 1);

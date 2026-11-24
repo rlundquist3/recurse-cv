@@ -1,4 +1,3 @@
-use core::sync::atomic::Ordering;
 
 use dsp_core::controls::api_to_cv::APIToCVModes;
 use embedded_graphics::{
@@ -10,7 +9,6 @@ use embedded_graphics::{
     text::Text,
 };
 use embedded_layout::{
-    View,
     align::{Align, horizontal, vertical},
     layout::linear::{LinearLayout, spacing},
     object_chain::Chain,
@@ -19,7 +17,7 @@ use embedded_layout::{
 use crate::display::{
     UIState,
     footer::{FOOTER_ITEM_COUNT, Footer},
-    shared::{DEFAULT_TEXT_STYLE, LARGE_TEXT_STYLE, SelectableItem},
+    shared::{LARGE_TEXT_STYLE, SelectableItem},
 };
 
 pub const MODE_COUNT: usize = 2;
