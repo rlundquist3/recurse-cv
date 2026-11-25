@@ -23,7 +23,7 @@ use crate::{
     display::{
         UIState,
         footer::{FOOTER_ITEM_COUNT, Footer},
-        shared::{DEFAULT_TEXT_STYLE, EMPTY_STYLE, FILLED_STYLE, SelectableItem},
+        shared::{BORDERED_STYLE, DEFAULT_TEXT_STYLE, FILLED_STYLE, SelectableItem},
     },
 };
 
@@ -54,8 +54,8 @@ impl ClockedLayout {
                 _ => 4,
             }
         );
-        let _ = write!(bpm, "{} bpm", clock.bpm);
-        let _ = write!(division, "{:?}", clock.division);
+        let _ = write!(bpm, "{}\nbpm", clock.bpm);
+        let _ = write!(division, "{}", clock.division);
 
         ClockedLayout {
             display_area,
@@ -80,8 +80,8 @@ impl Drawable for ClockedLayout {
         let top = SelectableItem::new(
             &top_text,
             Size {
-                width: 10,
-                height: 10,
+                width: 20,
+                height: 12,
             },
             self.state.navigation_location == FOOTER_ITEM_COUNT,
             false,
@@ -91,7 +91,7 @@ impl Drawable for ClockedLayout {
             &bottom_text,
             Size {
                 width: 10,
-                height: 10,
+                height: 12,
             },
             self.state.navigation_location == FOOTER_ITEM_COUNT + 1,
             false,
@@ -100,8 +100,8 @@ impl Drawable for ClockedLayout {
         let bpm = SelectableItem::new(
             &bpm_text,
             Size {
-                width: 20,
-                height: 10,
+                width: 24,
+                height: 24,
             },
             self.state.navigation_location == FOOTER_ITEM_COUNT + 2,
             false,
@@ -112,8 +112,8 @@ impl Drawable for ClockedLayout {
         let division = SelectableItem::new(
             &division_text,
             Size {
-                width: 20,
-                height: 10,
+                width: 52,
+                height: 12,
             },
             self.state.navigation_location == FOOTER_ITEM_COUNT + 3,
             false,
@@ -134,37 +134,37 @@ impl Drawable for ClockedLayout {
 
         let mut input_indicators = [
             Circle::new(Point::zero(), 4).into_styled(match input_monitor & 1 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
             Circle::new(Point::zero(), 4).into_styled(match input_monitor & 2 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
             Circle::new(Point::zero(), 4).into_styled(match input_monitor & 4 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
             Circle::new(Point::zero(), 4).into_styled(match input_monitor & 8 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
         ];
         let mut output_indicators = [
             Circle::new(Point::zero(), 4).into_styled(match output_monitor & 1 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
             Circle::new(Point::zero(), 4).into_styled(match output_monitor & 2 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
             Circle::new(Point::zero(), 4).into_styled(match output_monitor & 4 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
             Circle::new(Point::zero(), 4).into_styled(match output_monitor & 8 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
         ];
@@ -178,7 +178,7 @@ impl Drawable for ClockedLayout {
             .with_spacing(spacing::DistributeFill(100))
             .arrange();
 
-        let footer = Footer::new(self.state);
+        let footer = Footer::new(self.state, false);
 
         LinearLayout::vertical(
             Chain::new(parameters)

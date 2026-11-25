@@ -20,7 +20,7 @@ use crate::{
     display::{
         UIState,
         footer::Footer,
-        shared::{EMPTY_STYLE, FILLED_STYLE, LARGE_TEXT_STYLE},
+        shared::{BORDERED_STYLE, FILLED_STYLE, LARGE_TEXT_STYLE},
     },
 };
 
@@ -52,19 +52,19 @@ impl Drawable for RealTimeLayout {
 
         let mut indicators = [
             Circle::new(Point::zero(), 4).into_styled(match input_monitor & 1 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
             Circle::new(Point::zero(), 4).into_styled(match input_monitor & 2 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
             Circle::new(Point::zero(), 4).into_styled(match input_monitor & 4 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
             Circle::new(Point::zero(), 4).into_styled(match input_monitor & 8 {
-                0 => EMPTY_STYLE,
+                0 => BORDERED_STYLE,
                 _ => FILLED_STYLE,
             }),
         ];
@@ -74,7 +74,7 @@ impl Drawable for RealTimeLayout {
             .with_spacing(spacing::DistributeFill(100))
             .arrange();
 
-        let footer = Footer::new(self.state);
+        let footer = Footer::new(self.state, false);
 
         LinearLayout::vertical(
             Chain::new(title_text)

@@ -8,7 +8,7 @@ use embedded_layout::{
     object_chain::Chain,
 };
 
-use crate::display::shared::{DEFAULT_TEXT_STYLE, LARGE_TEXT_STYLE};
+use crate::display::shared::{LARGE_TEXT_STYLE, SMALL_TEXT_STYLE};
 
 pub struct LoadingLayout<'a> {
     display_area: Rectangle,
@@ -33,7 +33,7 @@ impl<'a> Drawable for LoadingLayout<'a> {
         D: DrawTarget<Color = Self::Color>,
     {
         let title_text = Text::new("Recurse CV", Point::zero(), LARGE_TEXT_STYLE);
-        let loading_text = Text::new(self.loading_text, Point::zero(), DEFAULT_TEXT_STYLE);
+        let loading_text = Text::new(self.loading_text, Point::zero(), SMALL_TEXT_STYLE);
 
         LinearLayout::vertical(Chain::new(title_text).append(loading_text))
             .with_alignment(horizontal::Center)

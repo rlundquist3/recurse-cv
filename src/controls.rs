@@ -144,6 +144,7 @@ async fn mode_handler(encoder_event: EncoderEvent) {
                     CLOCKED => {
                         MODE.store(1, Ordering::Relaxed);
                         page_tx.send(Page::Clocked);
+                        navigation_tx.send(FOOTER_ITEM_COUNT);
                     }
                     _ => {}
                 }

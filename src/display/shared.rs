@@ -4,7 +4,7 @@ use embedded_graphics::{
     geometry::{Point, Size},
     mono_font::{
         MonoTextStyle,
-        ascii::{FONT_6X10, FONT_10X20},
+        ascii::{FONT_4X6, FONT_6X10, FONT_9X18},
     },
     pixelcolor::BinaryColor,
     primitives::{Circle, Primitive, PrimitiveStyle, Rectangle},
@@ -17,14 +17,16 @@ use embedded_layout::{
 };
 
 pub const EMPTY_STYLE: PrimitiveStyle<BinaryColor> = PrimitiveStyle::new();
-pub const SELECTED_OPTION_STYLE: PrimitiveStyle<BinaryColor> =
+pub const BORDERED_STYLE: PrimitiveStyle<BinaryColor> =
     PrimitiveStyle::with_stroke(BinaryColor::On, 1);
 pub const FILLED_STYLE: PrimitiveStyle<BinaryColor> = PrimitiveStyle::with_fill(BinaryColor::On);
 
 pub const DEFAULT_TEXT_STYLE: MonoTextStyle<'_, BinaryColor> =
     MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
 pub const LARGE_TEXT_STYLE: MonoTextStyle<'_, BinaryColor> =
-    MonoTextStyle::new(&FONT_10X20, BinaryColor::On);
+    MonoTextStyle::new(&FONT_9X18, BinaryColor::On);
+pub const SMALL_TEXT_STYLE: MonoTextStyle<'_, BinaryColor> =
+    MonoTextStyle::new(&FONT_4X6, BinaryColor::On);
 
 pub struct SelectableItem<'a> {
     text: &'a Text<'a, MonoTextStyle<'a, BinaryColor>>,
@@ -52,7 +54,7 @@ impl<'a> SelectableItem<'a> {
 
     fn arrange(&self) -> impl View + Drawable<Color = BinaryColor, Output = ()> {
         let container = Rectangle::new(Point::zero(), self.size).into_styled(match self.selected {
-            true => SELECTED_OPTION_STYLE,
+            true => BORDERED_STYLE,
             false => EMPTY_STYLE,
         });
         let toggle = Circle::new(Point::zero(), 4).into_styled(match self.on {
@@ -65,7 +67,6 @@ impl<'a> SelectableItem<'a> {
                 self.text
                     .align_to(&container, horizontal::Center, vertical::Center),
             )
-            .append(toggle.align_to(&container, horizontal::Right, vertical::Center))
             .append(toggle.align_to(&container, horizontal::Center, vertical::Bottom))
             .translate(self.position)
     }

@@ -1,4 +1,3 @@
-
 use dsp_core::controls::api_to_cv::APIToCVModes;
 use embedded_graphics::{
     Drawable,
@@ -17,7 +16,7 @@ use embedded_layout::{
 use crate::display::{
     UIState,
     footer::{FOOTER_ITEM_COUNT, Footer},
-    shared::{LARGE_TEXT_STYLE, SelectableItem},
+    shared::{DEFAULT_TEXT_STYLE, LARGE_TEXT_STYLE, SelectableItem},
 };
 
 pub const MODE_COUNT: usize = 2;
@@ -46,23 +45,23 @@ impl Drawable for ModeSelectionLayout {
     {
         let title_text = Text::new("Mode", Point::zero(), LARGE_TEXT_STYLE);
 
-        let realtime_text = Text::new("Real-time", Point::zero(), LARGE_TEXT_STYLE);
+        let realtime_text = Text::new("Real\ntime", Point::zero(), DEFAULT_TEXT_STYLE);
         let realtime = SelectableItem::new(
             &realtime_text,
             Size {
-                width: 40,
-                height: 20,
+                width: 32,
+                height: 32,
             },
             self.state.navigation_location == FOOTER_ITEM_COUNT,
             self.state.mode == APIToCVModes::RealTime,
         );
 
-        let clocked_text = Text::new("Clocked", Point::zero(), LARGE_TEXT_STYLE);
+        let clocked_text = Text::new("Clocked", Point::zero(), DEFAULT_TEXT_STYLE);
         let clocked = SelectableItem::new(
             &clocked_text,
             Size {
-                width: 40,
-                height: 20,
+                width: 48,
+                height: 32,
             },
             self.state.navigation_location == FOOTER_ITEM_COUNT + 1,
             self.state.mode == APIToCVModes::Clocked,
@@ -73,11 +72,11 @@ impl Drawable for ModeSelectionLayout {
             .with_spacing(spacing::DistributeFill(100))
             .arrange();
 
-        let footer = Footer::new(self.state);
+        let footer = Footer::new(self.state, true);
 
         LinearLayout::vertical(Chain::new(title_text).append(options).append(footer))
             .with_alignment(horizontal::Center)
-            .with_spacing(spacing::DistributeFill(60))
+            .with_spacing(spacing::DistributeFill(64))
             .arrange()
             .align_to(&self.display_area, horizontal::Center, vertical::Center)
             .draw(target)

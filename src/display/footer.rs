@@ -41,8 +41,8 @@ impl<'a> Item<'a> {
         let container = Rectangle::new(
             Point::zero(),
             Size {
-                width: 20,
-                height: 10,
+                width: 24,
+                height: 12,
             },
         )
         .into_styled(button_style);
@@ -58,13 +58,15 @@ impl<'a> Item<'a> {
 
 pub struct Footer {
     state: UIState,
+    show_back: bool,
     position: Point,
 }
 
 impl Footer {
-    pub fn new(state: UIState) -> Self {
+    pub fn new(state: UIState, show_back: bool) -> Self {
         Footer {
             state,
+            show_back,
             position: Point::zero(),
         }
     }
@@ -72,38 +74,42 @@ impl Footer {
     fn format_mode(&self) -> &str {
         match self.state.mode {
             APIToCVModes::RealTime => "RT",
-            APIToCVModes::Clocked => "C", // TODO: show BPM here
+            APIToCVModes::Clocked => "Clk",
         }
     }
 
-    // TODO: make this play/stop symbols instead of text
+    // TODO: make this play/stop symbols instead of text?
     fn format_running(&self) -> &str {
         match self.state.running {
-            true => "running",
-            false => "stopped",
+            true => "on",
+            false => "off",
         }
     }
 
     // TODO: symbols
     fn format_network(&self) -> &str {
         match self.state.network_connected {
-            true => "1",
-            false => "0",
+            true => "net",
+            false => "!net",
         }
     }
 
     fn arrange(&self) -> impl View + Drawable<Color = BinaryColor, Output = ()> {
+        let back_text = if self.show_back { "<-" } else { "" };
+
         LinearLayout::horizontal(
-            Chain::new(Item::new("<-", self.state.navigation_location == 0).format())
-                .append(Item::new(self.format_mode(), self.state.navigation_location == 1).format())
-                .append(
-                    Item::new(self.format_running(), self.state.navigation_location == 2).format(),
+            Chain::new(
+                Item::new(
+                    back_text,
+                    self.show_back && self.state.navigation_location == 0,
                 )
-                .append(
-                    Item::new(self.format_network(), self.state.navigation_location == 3).format(),
-                ),
+                .format(),
+            )
+            .append(Item::new(self.format_mode(), self.state.navigation_location == 1).format())
+            .append(Item::new(self.format_running(), self.state.navigation_location == 2).format())
+            .append(Item::new(self.format_network(), self.state.navigation_location == 3).format()),
         )
-        .with_spacing(spacing::Tight)
+        .with_spacing(spacing::DistributeFill(124))
         .arrange()
         .translate(self.position)
     }
