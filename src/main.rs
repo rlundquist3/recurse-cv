@@ -9,9 +9,7 @@ use core::{
 use crate::{
     controls::{control_handler, encoder_click_handler, encoder_rotate_handler},
     cv::{TICK_MS, clock_change_handler, clocked_cv_output_handler, cv_message_handler},
-    display::{
-        DISPLAY_REFRESH, LOADING_MESSAGE, PAGE, Page, display_handler,
-    },
+    display::{DISPLAY_REFRESH, LOADING_MESSAGE, NAVIGATION_LOCATION, PAGE, Page, display_handler},
 };
 use cyw43::{JoinOptions, aligned_bytes};
 use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
@@ -34,6 +32,7 @@ use embassy_rp::{
     pwm::Pwm,
 };
 use embassy_sync::blocking_mutex::{Mutex as BlockingMutex, raw::CriticalSectionRawMutex};
+use embassy_time::Timer;
 use ssd1306::{I2CDisplayInterface, Ssd1306Async, prelude::*};
 use static_cell::StaticCell;
 
@@ -92,6 +91,9 @@ async fn main(spawner: Spawner) {
     info!("=======================");
 
     let page_tx = PAGE.sender();
+    let navigation_tx = NAVIGATION_LOCATION.sender();
+    page_tx.send(Page::Loading);
+    navigation_tx.send(0);
 
     let peripherals = embassy_rp::init(Default::default());
 
@@ -148,17 +150,24 @@ async fn main(spawner: Spawner) {
 
     let mut display = Ssd1306Async::new(i2c_interface, DisplaySize128x64, DisplayRotation::Rotate0)
         .into_buffered_graphics_mode();
-    display
-        .init()
-        .await
-        .expect("failed to initialize the display");
+    // display
+    //     .init()
+    //     .await
+    //     .expect("failed to initialize the display");
+    for _ in 0..3 {
+        if display.init().await.is_ok() {
+            break;
+        }
+
+        Timer::after_millis(50).await;
+    }
     spawner.spawn(display_handler(display, api_to_cv, clock).unwrap());
+    info!("Display setup complete");
 
     LOADING_MESSAGE
         .send("Establishing network connection")
         .await;
     DISPLAY_REFRESH.send(true).await;
-    page_tx.send(Page::Loading);
     // end display setup
 
     // start network setup

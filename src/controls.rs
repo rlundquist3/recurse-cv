@@ -11,8 +11,8 @@ use embassy_time::{Duration, Instant, Timer};
 use crate::{
     MODE, RUNNING, SharedAPIToCV, SharedClock,
     display::{
-        NAVIGATION_LOCATION, PAGE, Page, clocked::CLOCK_PARAM_COUNT, footer::FOOTER_ITEM_COUNT,
-        mode::MODE_COUNT,
+        DISPLAY_REFRESH, NAVIGATION_LOCATION, PAGE, Page, clocked::CLOCK_PARAM_COUNT,
+        footer::FOOTER_ITEM_COUNT, mode::MODE_COUNT,
     },
 };
 
@@ -77,9 +77,9 @@ pub async fn encoder_click_handler(mut sw: Input<'static>) {
 pub async fn control_handler(_api_to_cv: &'static SharedAPIToCV, clock: &'static SharedClock) {
     let buffer_rx = CONTROL_BUFFER.receiver();
     let mut page_rx = PAGE.receiver().unwrap();
-    let page = page_rx.get().await;
 
     loop {
+        let page = page_rx.get().await;
         let encoder_event = buffer_rx.receive().await;
         match page {
             Page::ModeSelection => {
@@ -93,6 +93,7 @@ pub async fn control_handler(_api_to_cv: &'static SharedAPIToCV, clock: &'static
             }
             _ => {}
         }
+        DISPLAY_REFRESH.send(true).await;
     }
 }
 
