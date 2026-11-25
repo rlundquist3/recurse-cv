@@ -68,7 +68,7 @@ fn UART0_IRQ() {
     }
 }
 
-pub static RUNNING: AtomicBool = AtomicBool::new(true);
+pub static RUNNING: AtomicBool = AtomicBool::new(false);
 pub static NETWORK_CONNECTED: AtomicBool = AtomicBool::new(false);
 
 // TODO: evaluate whether this is fine or if a more complex shared type is necessary
